@@ -1,4 +1,5 @@
 import convertedBibleData from "./convertedBibleData.json";
+import kjvData from "./kjv.json";
 
 export interface BibleData {
   [language: string]: {
@@ -10,47 +11,106 @@ export interface BibleData {
   };
 }
 
-// JSON 데이터를 타입 안전하게 변환
-const convertedData = convertedBibleData as BibleData;
+// KJV 데이터 타입 정의
+interface KjvBook {
+  name: string;
+  chapters: Array<{
+    chapter: number;
+    verses: Array<{
+      verse: number;
+      text: string;
+    }>;
+  }>;
+}
 
-export const bibleData: BibleData = {
-  en: {
-    Genesis: {
+interface KjvData {
+  books?: KjvBook[];
+  [key: string]: any;
+}
+
+// KJV 데이터 처리 함수
+function processKjvData(): { [book: string]: { [chapter: string]: { [verse: string]: string } } } {
+  const processedData: { [book: string]: { [chapter: string]: { [verse: string]: string } } } = {};
+  const kjv = kjvData as any;
+  
+  // KJV JSON이 verses 배열을 가지고 있는 경우 (실제 구조)
+  if (kjv.verses && Array.isArray(kjv.verses)) {
+    kjv.verses.forEach((verse: any) => {
+      const book = verse.book_name;
+      const chapter = verse.chapter?.toString();
+      const verseNum = verse.verse?.toString();
+      const text = verse.text;
+      
+      if (book && chapter && verseNum && text) {
+        if (!processedData[book]) {
+          processedData[book] = {};
+        }
+        if (!processedData[book][chapter]) {
+          processedData[book][chapter] = {};
+        }
+        processedData[book][chapter][verseNum] = text;
+      }
+    });
+  }
+  // KJV JSON이 books 배열을 가지고 있는 경우
+  else if (kjv.books && Array.isArray(kjv.books)) {
+    kjv.books.forEach((book: KjvBook) => {
+      const bookName = book.name;
+      processedData[bookName] = {};
+      
+      if (book.chapters && Array.isArray(book.chapters)) {
+        book.chapters.forEach((chapter) => {
+          const chapterNum = chapter.chapter.toString();
+          processedData[bookName][chapterNum] = {};
+          
+          if (chapter.verses && Array.isArray(chapter.verses)) {
+            chapter.verses.forEach((verse) => {
+              const verseNum = verse.verse.toString();
+              processedData[bookName][chapterNum][verseNum] = verse.text;
+            });
+          }
+        });
+      }
+    });
+  }
+  
+  // 만약 KJV 데이터가 비어있거나 다른 구조라면 기본 영어 성경 데이터 사용
+  if (Object.keys(processedData).length === 0) {
+    processedData["Genesis"] = {
       "1": {
         "1": "In the beginning God created the heaven and the earth.",
         "2": "And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters.",
         "3": "And God said, Let there be light: and there was light.",
         "4": "And God saw the light, that it was good: and God divided the light from the darkness.",
-        "5": "And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.",
-        "6": "And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters.",
-        "7": "And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so.",
-        "8": "And God called the firmament Heaven. And the evening and the morning were the second day.",
-        "9": "And God said, Let the waters under the heaven be gathered together unto one place, and let the dry land appear: and it was so.",
-        "10": "And God called the dry land Earth; and the gathering together of the waters called he Seas: and God saw that it was good.",
-      },
-      "2": {
-        "1": "Thus the heavens and the earth were finished, and all the host of them.",
-        "2": "And on the seventh day God ended his work which he had made; and he rested on the seventh day from all his work which he had made.",
-        "3": "And God blessed the seventh day, and sanctified it: because that in it he had rested from all his work which God created and made.",
-        "4": "These are the generations of the heavens and of the earth when they were created, in the day that the LORD God made the earth and the heavens.",
-        "5": "And every plant of the field before it was in the earth, and every herb of the field before it grew: for the LORD God had not caused it to rain upon the earth, and there was not a man to till the ground.",
-      },
-    },
-    John: {
+        "5": "And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day."
+      }
+    };
+    
+    processedData["John"] = {
       "1": {
         "1": "In the beginning was the Word, and the Word was with God, and the Word was God.",
         "2": "The same was in the beginning with God.",
         "3": "All things were made by him; and without him was not any thing made that was made.",
         "4": "In him was life; and the life was the light of men.",
-        "5": "And the light shineth in darkness; and the darkness comprehended it not.",
-      },
-    },
-  },
+        "5": "And the light shineth in darkness; and the darkness comprehended it not."
+      }
+    };
+  }
+  
+  return processedData;
+}
+
+// JSON 데이터를 타입 안전하게 변환
+const convertedData = convertedBibleData as BibleData;
+const englishBibleData = processKjvData();
+
+export const bibleData: BibleData = {
+  en: englishBibleData,
   ko: convertedData.ko,
 };
 
 export const bookNames = {
-  en: ["Genesis", "John"],
+  en: Object.keys(englishBibleData),
   ko: Object.keys(convertedData.ko),
 };
 
